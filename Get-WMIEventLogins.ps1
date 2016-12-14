@@ -26,7 +26,9 @@ If present, will display results to the console
     (
         # Parameter Assignment
         [Parameter(Mandatory = $False)]
-        [System.Management.Automation.PSCredential]$Creds,
+        [string]$User,
+		[Parameter(Mandatory = $False)]
+        [string]$Pass,
         [Parameter(Mandatory = $False)]
         [string]$Target,
         [Parameter(Mandatory = $False)]
@@ -56,8 +58,11 @@ If present, will display results to the console
 
         Write-Verbose "Connecting to $Target"
 
-        if($Creds)
+        if($User)
         {
+			$secpasswd = ConvertTo-SecureString $Pass -AsPlainText -Force
+			$mycreds = New-Object System.Management.Automation.PSCredential ($User, $secpasswd)
+
             $temp = Get-WmiObject -computername $Target -Credential $Creds -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | where { $_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp"} | Out-File -Encoding ASCII -FilePath $FileName
             
             if(($Read -eq "yes") -or ($Read -eq "y"))
