@@ -1,3 +1,12 @@
+# Command to reconstruct on the backend if ChunkSize was specified
+# Assumes that $FileName on backend system is the same as the $FileName specified on the target system where the rest of this script was run
+
+#$ReconstructedResultFile = $FileName + ".RECONSTRUCTED.txt"
+#If(Test-Path $ReconstructedResultFile) {Remove-Item $ReconstructedResultFile}
+#Get-ChildItem $FileName* | ForEach-Object {(Get-Content $_ | Where-Object {$_.Length -gt 0}) >> $ReconstructedResultFile}
+#Notepad $ReconstructedResultFile
+
+
 function Get-WMIEventLogins
 {
 <#
