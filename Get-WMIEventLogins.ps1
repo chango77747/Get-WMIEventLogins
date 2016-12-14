@@ -34,7 +34,7 @@ If present, will display results to the console
         [Parameter(Mandatory = $False)]
         [string]$FileName,
         [Parameter(Mandatory = $False)]
-        [string]$Read
+        [boolean]$Read
     )
 
     Process {
@@ -45,17 +45,6 @@ If present, will display results to the console
             $Target = $Target.Trim()
         }
 
-        if(!$FileName)
-        {
-            $FileName = Read-Host "Where would you like the output saved to? >"
-        }
-
-        if(!$Read)
-        {
-            $Read = Read-Host "Would you like the output displayed to the console? [y/n] >"
-            $Read = $Read.Trim().ToLower()
-        }
-
         Write-Verbose "Connecting to $Target"
 
         if($User)
@@ -63,11 +52,11 @@ If present, will display results to the console
 			$secpasswd = ConvertTo-SecureString $Pass -AsPlainText -Force
 			$mycreds = New-Object System.Management.Automation.PSCredential ($User, $secpasswd)
 
-            $temp = Get-WmiObject -computername $Target -Credential $Creds -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | where { $_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp"} | Out-File -Encoding ASCII -FilePath $FileName
+            $temp = Get-WmiObject -computername $Target -Credential $mycreds -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | where { $_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp"} | Out-File -Encoding ASCII -FilePath $FileName
             
-            if(($Read -eq "yes") -or ($Read -eq "y"))
+            if($Read)
             {
-                gc $FileName | Select-String -pattern '(Workstation Name:)|(Account Name:)'
+                gc $temp | Select-String -pattern '(Workstation Name:)|(Account Name:)'
             }
         }
 
@@ -75,9 +64,9 @@ If present, will display results to the console
         {
             $temp = Get-WmiObject -computername $Target -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | where { $_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp"} | Out-File -Encoding ASCII -FilePath $FileName
             
-            if(($Read -eq "yes") -or ($Read -eq "y"))
+            if($Read)
             {
-                gc $FileName | Select-String -pattern '(Workstation Name:)|(Account Name:)'
+                gc $temp | Select-String -pattern '(Workstation Name:)|(Account Name:)'
             }
         }
     }
