@@ -18,6 +18,9 @@ Password to connect to remote host
 .PARAMETER FileName
 Path to save output to
 
+.PARAMETER ChunkSize
+Size (in bytes) of output file chunks if FileName is selected
+
 .PARAMETER Read
 If present, will display results to the console
 #>
@@ -33,6 +36,8 @@ If present, will display results to the console
         [string]$Target,
         [Parameter(Mandatory = $False)]
         [string]$FileName,
+        [Parameter(Mandatory = $False)]
+        [int]$ChunkSize,
         [Parameter(Mandatory = $False)]
         [boolean]$Read
     )
@@ -52,22 +57,54 @@ If present, will display results to the console
 			$secpasswd = ConvertTo-SecureString $Pass -AsPlainText -Force
 			$mycreds = New-Object System.Management.Automation.PSCredential ($User, $secpasswd)
 
-            $temp = Get-WmiObject -computername $Target -Credential $mycreds -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | where { $_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp"} | Out-File -Encoding ASCII -FilePath $FileName
-            
-            if($Read)
-            {
-                gc $temp | Select-String -pattern '(Workstation Name:)|(Account Name:)'
+            # Memory-only version
+            $Results = @()
+            Get-WmiObject -computername $Target -Credential $mycreds -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | ForEach-Object {
+                If($_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp")
+                {
+                    $Results += $_.Message.Split("`n") | Select-String -Pattern "`tAccount Name:|`tWorkstation Name:"
+                }
             }
         }
 
         else
         {
-            $temp = Get-WmiObject -computername $Target -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | where { $_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp"} | Out-File -Encoding ASCII -FilePath $FileName
-            
-            if($Read)
-            {
-                gc $temp | Select-String -pattern '(Workstation Name:)|(Account Name:)'
+            # Memory-only version
+            $Results = @()
+            Get-WmiObject -computername $Target -query "SELECT * FROM Win32_NTLogEvent WHERE (logfile='security') AND (EventCode='4624')" | ForEach-Object {
+                If($_.Message | Select-String "Logon Type:\s+3" | Select-String "Logon Process:\s+NtlmSsp")
+                {
+                    $Results += $_.Message.Split("`n") | Select-String -Pattern "`tAccount Name:|`tWorkstation Name:"
+                }
             }
         }
+
+        # Output to disk if selected
+        if($FileName)
+        {
+            # Chunk output if ChunkSize is selected
+            if($ChunkSize)
+            {
+                $Counter = 0
+                $Results | ForEach-Object {
+                    If((Test-Path $FileName) -AND ((Get-Item $FileName).Length -gt $ChunkSize))
+                    {
+                        $Counter++
+                        If($FileName.EndsWith('.'+($Counter-1))) {$FileName = $FileName.SubString(0,$FileName.LastIndexOf('.'))}
+                        $FileName = "$FileName.$Counter"
+                    }
+                    Write-Output $_ >> $FileName
+                }
+            }
+            Else
+            {
+                Write-Output $Results > $FileName
+            }
+        }
+        if($Read)
+        {
+            Write-Output $Results
+        }
+
     }
 }
